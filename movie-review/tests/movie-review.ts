@@ -26,11 +26,12 @@ describe('movie-review', () => {
       .accounts({ user: user.publicKey })
       .signers([user.payer])
       .rpc();
+
     const account = await program.account.movieReviewAccount.fetch(moviePda);
-    expect(movie.title === account.title);
-    expect(movie.rating === account.rating);
-    expect(movie.description === account.description);
-    expect(account.reviewer === user.publicKey);
+    expect(account.title).to.equal(movie.title);
+    expect(account.rating).to.equal(movie.rating);
+    expect(account.description).to.equal(movie.description);
+    expect(account.reviewer.toBase58()).to.equal(user.publicKey.toBase58());
 
     console.log('Your transaction signature', tx);
   });
@@ -44,10 +45,11 @@ describe('movie-review', () => {
       .signers([user.payer])
       .rpc();
     const account = await program.account.movieReviewAccount.fetch(moviePda);
-    expect(movie.title === account.title);
-    expect(newRating === account.rating);
-    expect(newDescription === account.description);
-    expect(account.reviewer === user.publicKey);
+
+    expect(account.title).to.equal(movie.title);
+    expect(account.rating).to.equal(newRating);
+    expect(account.description).to.equal(newDescription);
+    expect(account.reviewer.toBase58()).to.equal(user.publicKey.toBase58());
 
     console.log('Your transaction signature', tx);
   });

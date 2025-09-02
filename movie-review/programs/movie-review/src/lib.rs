@@ -28,9 +28,12 @@ pub mod movie_review {
         msg!("Rating: {}", rating);
 
         let movie_review = &mut ctx.accounts.movie_review;
-        movie_review.rating = rating;
-        movie_review.description = description;
-        movie_review.title = title;
+        movie_review.set_inner(MovieReviewAccount {
+            reviewer: ctx.accounts.user.key(),
+            rating,
+            title,
+            description,
+        });
 
         Ok(())
     }
