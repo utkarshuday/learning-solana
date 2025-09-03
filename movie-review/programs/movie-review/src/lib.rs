@@ -1,5 +1,9 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{ mint_to, Mint, MintTo, TokenAccount, TokenInterface },
+};
 
 const DISCRIMINATOR_SIZE: usize = 8;
 const MAX_TITLE_LEN: usize = 20;
@@ -12,6 +16,12 @@ declare_id!("CUfeVW69zRTLmNRkMGc5nQj1PGWehghDtvUCXakxhbT7");
 #[program]
 pub mod movie_review {
     use super::*;
+
+    pub fn create_mint(_ctx: Context<CreateMint>) -> Result<()> {
+        msg!("Token mint initialized");
+        Ok(())
+    }
+
     pub fn add_movie_review(
         ctx: Context<AddMovieReview>,
         title: String,
@@ -34,6 +44,20 @@ pub mod movie_review {
             title,
             description,
         });
+
+        let signer_seeds: &[&[&[u8]]] = &[&[b"mint", &[ctx.bumps.mint]]];
+        let cpi_accounts = MintTo {
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.token_account.to_account_info(),
+            authority: ctx.accounts.mint.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
+        let amount = 10 * (10u64).pow(6);
+        mint_to(cpi_context, amount)?;
+
+        msg!("Tokens rewarded!");
 
         Ok(())
     }
@@ -66,11 +90,28 @@ pub mod movie_review {
 }
 
 #[derive(Accounts)]
+pub struct CreateMint<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    #[account(
+        init,
+        payer = user,
+        mint::decimals = 6,
+        mint::authority = mint.key(),
+        mint::freeze_authority = mint.key(),
+        seeds = [b"mint"],
+        bump
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 #[instruction(title: String)]
 pub struct AddMovieReview<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-    pub system_program: Program<'info, System>,
     #[account(
         init,
         payer = user,
@@ -79,6 +120,19 @@ pub struct AddMovieReview<'info> {
         bump
     )]
     pub movie_review: Account<'info, MovieReviewAccount>,
+    #[account(
+        init_if_needed,
+        payer = user,
+        associated_token::mint = mint,
+        associated_token::authority = user,
+        associated_token::token_program = token_program
+    )]
+    pub token_account: InterfaceAccount<'info, TokenAccount>,
+    #[account(mut, seeds=[b"mint"], bump)]
+    pub mint: InterfaceAccount<'info, Mint>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
