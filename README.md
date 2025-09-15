@@ -1,4 +1,4 @@
-This repository contains multiple small Anchor (Solana) projects I built for learning purposes.
+This repository contains multiple Solana projects I built for learning purposes.
 
 ## Projects
 
