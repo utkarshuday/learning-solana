@@ -1,5 +1,4 @@
 import {
-  Candidate,
   fetchCandidate,
   fetchPoll,
   fetchVote,
