@@ -1,0 +1,20 @@
+[toolchain]
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+voting = "B2xRBKU1C58AUKFiES9wDQHSXU6Nnj9dhsiLAFrvewhJ"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm codama run js;pnpm vitest"
+generate-client = "anchor build; pnpm codama run js"
