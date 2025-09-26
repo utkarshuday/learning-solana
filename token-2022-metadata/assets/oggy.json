@@ -1,0 +1,6 @@
+{
+  "name": "Oggy",
+  "symbol": "OGGY",
+  "description": "Employees love this token",
+  "image": "https://raw.githubusercontent.com/utkarshuday/learning-solana/main/token-vesting-dapp/anchor/tests/assets/oggy.jpg"
+}

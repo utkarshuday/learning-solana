@@ -1,180 +1,171 @@
+import { getCreateVestingInstructionAsync } from '@project/anchor';
 import {
-  Blockhash,
-  createSolanaClient,
-  createTransaction,
+  Address,
   generateKeyPairSigner,
-  Instruction,
-  isSolanaError,
   KeyPairSigner,
   signTransactionMessageWithSigners,
 } from 'gill';
-import {
-  fetchTokenvestingdapp,
-  getCloseInstruction,
-  getDecrementInstruction,
-  getIncrementInstruction,
-  getInitializeInstruction,
-  getSetInstruction,
-} from '@project/anchor';
-// @ts-ignore error TS2307 suggest setting `moduleResolution` but this is already configured
+
 import { loadKeypairSignerFromFile } from 'gill/node';
+import {
+  buildCreateTokenTransaction,
+  TOKEN_2022_PROGRAM_ADDRESS,
+} from 'gill/programs';
+import { getLatestBlockhash, sendAndConfirmTransaction } from './helper';
 
-const { rpc, sendAndConfirmTransaction } = createSolanaClient({
-  urlOrMoniker: process.env.ANCHOR_PROVIDER_URL!,
-});
-
-describe('tokenvestingdapp', () => {
-  let payer: KeyPairSigner;
-  let tokenvestingdapp: KeyPairSigner;
+describe('Token Vesting Program', () => {
+  let employer: KeyPairSigner;
+  let mint: Address;
 
   beforeAll(async () => {
-    tokenvestingdapp = await generateKeyPairSigner();
-    payer = await loadKeypairSignerFromFile(process.env.ANCHOR_WALLET!);
-  });
+    employer = await loadKeypairSignerFromFile(process.env.ANCHOR_WALLET!);
+    const mintKeyPair = await generateKeyPairSigner();
 
-  it('Initialize Tokenvestingdapp', async () => {
-    // ARRANGE
-    expect.assertions(1);
-    const ix = getInitializeInstruction({
-      payer: payer,
-      tokenvestingdapp: tokenvestingdapp,
+    const latestBlockhash = await getLatestBlockhash();
+    const mintTokenIx = await buildCreateTokenTransaction({
+      feePayer: employer,
+      mint: mintKeyPair,
+      metadata: {
+        isMutable: true,
+        name: 'OGGY',
+        symbol: 'OGGY',
+        uri: 'https://raw.githubusercontent.com/utkarshuday/learning-solana/main/token-vesting-dapp/anchor/tests/assets/oggy.json',
+      },
+      decimals: 9,
+      latestBlockhash,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
     });
-
-    // ACT
-    await sendAndConfirm({ ix, payer });
-
-    // ASSER
-    const currentTokenvestingdapp = await fetchTokenvestingdapp(
-      rpc,
-      tokenvestingdapp.address
-    );
-    expect(currentTokenvestingdapp.data.count).toEqual(0);
+    const signedTransaction =
+      await signTransactionMessageWithSigners(mintTokenIx);
+    await sendAndConfirmTransaction(signedTransaction);
+    mint = mintKeyPair.address;
   });
 
-  it('Increment Tokenvestingdapp', async () => {
-    // ARRANGE
-    expect.assertions(1);
-    const ix = getIncrementInstruction({
-      tokenvestingdapp: tokenvestingdapp.address,
+  describe('Create vesting account by employer', () => {
+    it('successfully creates a vesting account with valid inputs', async () => {
+      // ARRANGE
+      const ix = getCreateVestingInstructionAsync({
+        signer: employer,
+        companyId: 1,
+        companyName: 'Turbin3',
+        mint,
+      });
     });
-
-    // ACT
-    await sendAndConfirm({ ix, payer });
-
-    // ASSERT
-    const currentCount = await fetchTokenvestingdapp(
-      rpc,
-      tokenvestingdapp.address
-    );
-    expect(currentCount.data.count).toEqual(1);
   });
 
-  it('Increment Tokenvestingdapp Again', async () => {
-    // ARRANGE
-    expect.assertions(1);
-    const ix = getIncrementInstruction({
-      tokenvestingdapp: tokenvestingdapp.address,
-    });
+  // it('Initialize Tokenvestingdapp', async () => {
+  //   // ARRANGE
+  //   expect.assertions(1);
+  //   const ix = getInitializeInstruction({
+  //     payer: payer,
+  //     tokenvestingdapp: tokenvestingdapp,
+  //   });
 
-    // ACT
-    await sendAndConfirm({ ix, payer });
+  //   // ACT
+  //   await sendAndConfirm({ ix, payer });
 
-    // ASSERT
-    const currentCount = await fetchTokenvestingdapp(
-      rpc,
-      tokenvestingdapp.address
-    );
-    expect(currentCount.data.count).toEqual(2);
-  });
+  //   // ASSER
+  //   const currentTokenvestingdapp = await fetchTokenvestingdapp(
+  //     rpc,
+  //     tokenvestingdapp.address
+  //   );
+  //   expect(currentTokenvestingdapp.data.count).toEqual(0);
+  // });
 
-  it('Decrement Tokenvestingdapp', async () => {
-    // ARRANGE
-    expect.assertions(1);
-    const ix = getDecrementInstruction({
-      tokenvestingdapp: tokenvestingdapp.address,
-    });
+  //   it('Increment Tokenvestingdapp', async () => {
+  //     // ARRANGE
+  //     expect.assertions(1);
+  //     const ix = getIncrementInstruction({
+  //       tokenvestingdapp: tokenvestingdapp.address,
+  //     });
 
-    // ACT
-    await sendAndConfirm({ ix, payer });
+  //     // ACT
+  //     await sendAndConfirm({ ix, payer });
 
-    // ASSERT
-    const currentCount = await fetchTokenvestingdapp(
-      rpc,
-      tokenvestingdapp.address
-    );
-    expect(currentCount.data.count).toEqual(1);
-  });
+  //     // ASSERT
+  //     const currentCount = await fetchTokenvestingdapp(
+  //       rpc,
+  //       tokenvestingdapp.address
+  //     );
+  //     expect(currentCount.data.count).toEqual(1);
+  //   });
 
-  it('Set tokenvestingdapp value', async () => {
-    // ARRANGE
-    expect.assertions(1);
-    const ix = getSetInstruction({
-      tokenvestingdapp: tokenvestingdapp.address,
-      value: 42,
-    });
+  //   it('Increment Tokenvestingdapp Again', async () => {
+  //     // ARRANGE
+  //     expect.assertions(1);
+  //     const ix = getIncrementInstruction({
+  //       tokenvestingdapp: tokenvestingdapp.address,
+  //     });
 
-    // ACT
-    await sendAndConfirm({ ix, payer });
+  //     // ACT
+  //     await sendAndConfirm({ ix, payer });
 
-    // ASSERT
-    const currentCount = await fetchTokenvestingdapp(
-      rpc,
-      tokenvestingdapp.address
-    );
-    expect(currentCount.data.count).toEqual(42);
-  });
+  //     // ASSERT
+  //     const currentCount = await fetchTokenvestingdapp(
+  //       rpc,
+  //       tokenvestingdapp.address
+  //     );
+  //     expect(currentCount.data.count).toEqual(2);
+  //   });
 
-  it('Set close the tokenvestingdapp account', async () => {
-    // ARRANGE
-    expect.assertions(1);
-    const ix = getCloseInstruction({
-      payer: payer,
-      tokenvestingdapp: tokenvestingdapp.address,
-    });
+  //   it('Decrement Tokenvestingdapp', async () => {
+  //     // ARRANGE
+  //     expect.assertions(1);
+  //     const ix = getDecrementInstruction({
+  //       tokenvestingdapp: tokenvestingdapp.address,
+  //     });
 
-    // ACT
-    await sendAndConfirm({ ix, payer });
+  //     // ACT
+  //     await sendAndConfirm({ ix, payer });
 
-    // ASSERT
-    try {
-      await fetchTokenvestingdapp(rpc, tokenvestingdapp.address);
-    } catch (e) {
-      if (!isSolanaError(e)) {
-        throw new Error(`Unexpected error: ${e}`);
-      }
-      expect(e.message).toEqual(
-        `Account not found at address: ${tokenvestingdapp.address}`
-      );
-    }
-  });
+  //     // ASSERT
+  //     const currentCount = await fetchTokenvestingdapp(
+  //       rpc,
+  //       tokenvestingdapp.address
+  //     );
+  //     expect(currentCount.data.count).toEqual(1);
+  //   });
+
+  //   it('Set tokenvestingdapp value', async () => {
+  //     // ARRANGE
+  //     expect.assertions(1);
+  //     const ix = getSetInstruction({
+  //       tokenvestingdapp: tokenvestingdapp.address,
+  //       value: 42,
+  //     });
+
+  //     // ACT
+  //     await sendAndConfirm({ ix, payer });
+
+  //     // ASSERT
+  //     const currentCount = await fetchTokenvestingdapp(
+  //       rpc,
+  //       tokenvestingdapp.address
+  //     );
+  //     expect(currentCount.data.count).toEqual(42);
+  //   });
+
+  //   it('Set close the tokenvestingdapp account', async () => {
+  //     // ARRANGE
+  //     expect.assertions(1);
+  //     const ix = getCloseInstruction({
+  //       payer: payer,
+  //       tokenvestingdapp: tokenvestingdapp.address,
+  //     });
+
+  //     // ACT
+  //     await sendAndConfirm({ ix, payer });
+
+  //     // ASSERT
+  //     try {
+  //       await fetchTokenvestingdapp(rpc, tokenvestingdapp.address);
+  //     } catch (e) {
+  //       if (!isSolanaError(e)) {
+  //         throw new Error(`Unexpected error: ${e}`);
+  //       }
+  //       expect(e.message).toEqual(
+  //         `Account not found at address: ${tokenvestingdapp.address}`
+  //       );
+  //     }
+  //   });
 });
-
-// Helper function to keep the tests DRY
-let latestBlockhash: Awaited<ReturnType<typeof getLatestBlockhash>> | undefined;
-async function getLatestBlockhash(): Promise<
-  Readonly<{ blockhash: Blockhash; lastValidBlockHeight: bigint }>
-> {
-  if (latestBlockhash) {
-    return latestBlockhash;
-  }
-  return await rpc
-    .getLatestBlockhash()
-    .send()
-    .then(({ value }) => value);
-}
-async function sendAndConfirm({
-  ix,
-  payer,
-}: {
-  ix: Instruction;
-  payer: KeyPairSigner;
-}) {
-  const tx = createTransaction({
-    feePayer: payer,
-    instructions: [ix],
-    version: 'legacy',
-    latestBlockhash: await getLatestBlockhash(),
-  });
-  const signedTransaction = await signTransactionMessageWithSigners(tx);
-  return await sendAndConfirmTransaction(signedTransaction);
-}
