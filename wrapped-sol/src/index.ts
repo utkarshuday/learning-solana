@@ -1,89 +1,46 @@
-import { getTransferSolInstruction } from '@solana-program/system';
-import {
-  fetchToken,
-  findAssociatedTokenPda,
-  getCreateAssociatedTokenInstruction,
-  getSyncNativeInstruction,
-  TOKEN_PROGRAM_ADDRESS,
-} from '@solana-program/token';
-import {
-  address,
-  airdropFactory,
-  appendTransactionMessageInstructions,
-  assertIsSendableTransaction,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
-  createTransactionMessage,
-  generateKeyPairSigner,
-  getSignatureFromTransaction,
-  lamports,
-  pipe,
-  sendAndConfirmTransactionFactory,
-  setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash,
-  signTransactionMessageWithSigners,
-} from '@solana/kit';
-
-const rpc = createSolanaRpc('http://localhost:8899');
-const rpcSubscriptions = createSolanaRpcSubscriptions('ws://localhost:8900');
+import { fetchToken } from '@solana-program/token';
+import { airdropFactory, generateKeyPairSigner, lamports } from '@solana/kit';
+import { createClient } from './helper';
+import { transferWSol } from './transfer-wsol';
+import { unwrapSol } from './unwrap-sol';
+import { wrapSol } from './wrap-sol';
 
 const userA = await generateKeyPairSigner();
 const userB = await generateKeyPairSigner();
 
-await airdropFactory({ rpc, rpcSubscriptions })({
+const client = createClient();
+await airdropFactory(client)({
   recipientAddress: userA.address,
-  lamports: lamports(1_000_000_000n),
+  lamports: lamports(1_500_000_000n),
   commitment: 'confirmed',
 });
 
-const NATIVE_MINT = address('So11111111111111111111111111111111111111112');
-
-const [ata] = await findAssociatedTokenPda({
-  owner: userB.address,
-  mint: NATIVE_MINT,
-  tokenProgram: TOKEN_PROGRAM_ADDRESS,
+// Wrap SOL to wSOL
+const ataUserA = await wrapSol({
+  user: userA.address,
+  amount: 1_000_000_000n,
+  feePayer: userA,
 });
 
-const createAtaIx = getCreateAssociatedTokenInstruction({
-  ata,
-  mint: NATIVE_MINT,
-  owner: userB.address,
-  payer: userA,
-});
-
-const transferSolIx = getTransferSolInstruction({
-  source: userA,
-  destination: ata,
+// Transfer wSOL from one wallet to another
+// lamports as well as amount gets reduced
+// no need to sync here since token to token transfer
+const ataUserB = await transferWSol({
+  sourceAta: ataUserA,
   amount: 1_000_000n,
+  destination: userB.address,
+  feePayer: userA,
 });
 
-const syncIx = getSyncNativeInstruction({
-  account: ata,
+console.log(await fetchToken(client.rpc, ataUserA));
+console.log(await fetchToken(client.rpc, ataUserB));
+
+// Unwrap wSOL and receive at destination as SOL
+await unwrapSol({
+  account: ataUserB,
+  owner: userB,
+  destination: userB.address,
+  feePayer: userA,
 });
 
-const instructions = [createAtaIx, transferSolIx, syncIx];
-
-const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-const transaction = pipe(
-  createTransactionMessage({ version: 0 }),
-  tx => setTransactionMessageFeePayerSigner(userA, tx),
-  tx => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-  tx => appendTransactionMessageInstructions(instructions, tx)
-);
-
-const signedTransaction = await signTransactionMessageWithSigners(transaction);
-assertIsSendableTransaction(signedTransaction);
-
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedTransaction,
-  { commitment: 'confirmed' }
-);
-
-const transactionSignature = getSignatureFromTransaction(signedTransaction);
-
-console.log('Fee Payer Address:', userA.address.toString());
-console.log('WSOL Token Account Address:', ata.toString());
-console.log('Successfully wrapped SOL into WSOL');
-console.log('Transaction Signature:', transactionSignature);
-console.log(await fetchToken(rpc, ata));
+console.log(await client.rpc.getAccountInfo(userB.address).send());
