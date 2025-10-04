@@ -7,3 +7,4 @@ This repository contains multiple Solana projects I built for learning purposes.
 3. [Voting Program](voting-program/README.md) - A simple voting program written using Anchor
 4. [Metadata and Metadata Pointer Extensions](token-2022-metadata/README.md) - Create NFT with metadata and metadata pointer extensions using Token-22
 5. [Exploring - Wrapped SOL](wrapped-sol/README.md) - Wraps SOL, transfers wSOL between wallets and unwraps wSOL
+6. [Movie Review Program - Native](movie-review-native/README.md) - A simple native Solana program.
